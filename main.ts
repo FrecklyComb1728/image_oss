@@ -1,4 +1,4 @@
-const TARGET_BASE = "https://testingcf.jsdelivr.net/gh/FrecklyComb1728/image-cdn@master/";
+const TARGET_BASE = "https://cdn.statically.io/gh/FrecklyComb1728/image-cdn@master/";
 const FAVICON_PATH = "./favicon.ico";
 const CACHE_MAX_AGE = 5184000; // 24小时缓存（单位：秒）
 
