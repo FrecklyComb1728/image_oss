@@ -1,7 +1,7 @@
 [build]
   publish = "assets" 
 
-[edge_functions]
+[[edge_functions]]
   directory = "functions" 
   function = "main"
   path = "/*"
