@@ -5,5 +5,5 @@
   directory = "functions"  # 所有 Edge Functions 的根目录
 
 [[edge_functions]]
-  function = "main"        # 对应 functions/main.ts
-  path = "/*"              # 捕获所有未匹配静态资源的请求
+  function = "main"
+  path = "/*"
