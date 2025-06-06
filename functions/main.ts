@@ -1,9 +1,9 @@
-const FAVICON_PATH = "./favicon.ico";
+const FAVICON_PATH = "../favicon.ico";
 const CACHE_MAX_AGE = 5184000; // 24小时缓存（单位：秒）
 
 // 预加载资源
 const [homepage, favicon] = await Promise.all([
-  Deno.readTextFile("./index.html").catch(() => null),
+  Deno.readTextFile("../index.html").catch(() => null),
   Deno.readFile(FAVICON_PATH).catch(() => null),
 ]);
 

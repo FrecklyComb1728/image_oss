@@ -1,0 +1,8 @@
+[build]
+  publish = "assets" 
+  publish = "image" 
+
+[edge_functions]
+  directory = "functions" 
+  function = "main"
+  path = "/*"
