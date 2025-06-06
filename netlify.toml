@@ -1,7 +1,9 @@
 [build]
-  publish = "assets" 
+  publish = "assets"
+
+[edge_functions]
+  directory = "functions"  # 所有 Edge Functions 的根目录
 
 [[edge_functions]]
-  directory = "functions" 
-  function = "main"
-  path = "/*"
+  function = "main"        # 对应 functions/main.ts
+  path = "/*"              # 捕获所有未匹配静态资源的请求
