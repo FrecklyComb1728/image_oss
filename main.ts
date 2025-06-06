@@ -1,4 +1,3 @@
-const TARGET_BASE = "https://cdn.statically.io/gh/FrecklyComb1728/image-cdn@master/";
 const FAVICON_PATH = "./favicon.ico";
 const CACHE_MAX_AGE = 5184000; // 24小时缓存（单位：秒）
 
@@ -7,6 +6,18 @@ const [homepage, favicon] = await Promise.all([
   Deno.readTextFile("./index.html").catch(() => null),
   Deno.readFile(FAVICON_PATH).catch(() => null),
 ]);
+
+// 配置多个代理路径，包括主 CDN 路径
+const PROXIES = [
+  {
+    prefix: "/imlazy/",
+    target: "https://cdn.imlazy.ink:233/img/background/"
+  },
+  {
+    prefix: "/",
+    target: "https://cdn.statically.io/gh/FrecklyComb1728/image-cdn@master/"
+  }
+].sort((a, b) => b.prefix.length - a.prefix.length); // 按前缀长度降序排序
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
@@ -42,25 +53,36 @@ Deno.serve(async (req) => {
   }
 
   // 代理请求处理
+  let targetBase = null;
+  let basePath = url.pathname;
+
+  // 查找匹配的代理配置
+  for (const proxy of PROXIES) {
+    if (url.pathname.startsWith(proxy.prefix)) {
+      targetBase = proxy.target;
+      basePath = url.pathname.slice(proxy.prefix.length);
+      break;
+    }
+  }
+
+  // 路径安全化处理
+  const sanitizedPath = basePath
+    .replace(/^\//, "") // 去除开头斜杠
+    .replace(/\|/g, "") // 去除非法字符
+    .replace(/\/+/g, "/"); // 合并连续斜杠
+
+  const targetUrl = new URL(sanitizedPath + url.search, targetBase);
+
   try {
-    const sanitizedPath = url.pathname
-      .replace(/^\//, "")
-      .replace(/\|/g, "")
-      .replace(/\/+/g, "/");
-    
-    const targetUrl = new URL(sanitizedPath + url.search, TARGET_BASE);
-    
-    // 转发请求
     const headers = new Headers(req.headers);
     headers.delete("host");
-    
+
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: headers,
       body: req.body,
     });
 
-    // 处理所有响应头
     const responseHeaders = new Headers(response.headers);
     responseHeaders.set("Cache-Control", `public, max-age=${CACHE_MAX_AGE}`);
     responseHeaders.set("Content-Type", 
@@ -85,6 +107,6 @@ Deno.serve(async (req) => {
 
 console.log(`
 ✅ 服务已启动（全资源缓存 ${CACHE_MAX_AGE} 秒）
-├ 目标地址: ${TARGET_BASE}
+├ 代理配置: ${PROXIES.map(p => `${p.prefix} → ${p.target}`).join(", ")}
 └ 启动时间: ${new Date().toLocaleString()}
 `);
