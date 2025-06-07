@@ -2,6 +2,6 @@
   publish = "assets"
 
 [edge_functions]
-  directory = "functions"  # 自定义目录
-  function = "main"        # 函数名称
-  path = "/*"  
+  directory = "functions"
+  function = "main"
+  path = "/*"
