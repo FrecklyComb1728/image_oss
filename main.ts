@@ -7,17 +7,20 @@ const [homepage, favicon] = await Promise.all([
   Deno.readFile(FAVICON_PATH).catch(() => null),
 ]);
 
-// 配置多个代理路径，包括主 CDN 路径
+// 配置多个代理路径，带有冗余措施
 const PROXIES = [
   {
     prefix: "/imlazy/",
-    target: "https://cdn.imlazy.ink:233/img/background/"
+    target: "https://cdn.imlazy.ink:233/img/background/",
+    // 自定义重定向模板（可选）
+    rawRedirect: "https://custom-source-domain.com/images/{path}"
   },
   {
     prefix: "/image/",
-    target: "https://cdn.statically.io/gh/FrecklyComb1728/image-cdn@master/image/"
+    target: "https://cdn.statically.io/gh/FrecklyComb1728/image-cdn@master/image/",
+    // 没有配置自定义重定向模板（冗余措施会处理）
   }
-].sort((a, b) => b.prefix.length - a.prefix.length); // 按前缀长度降序排序
+].sort((a, b) => b.prefix.length - a.prefix.length);
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
@@ -53,20 +56,19 @@ Deno.serve(async (req) => {
   }
 
   // 代理请求处理
-  let targetBase = null;
+  let proxyConfig = null;
   let basePath = url.pathname;
 
   // 查找匹配的代理配置
   for (const proxy of PROXIES) {
     if (url.pathname.startsWith(proxy.prefix)) {
-      targetBase = proxy.target;
+      proxyConfig = proxy;
       basePath = url.pathname.slice(proxy.prefix.length);
       break;
     }
   }
 
-  // 如果没有匹配的代理路径
-  if (targetBase === null) {
+  if (!proxyConfig) {
     return new Response("Not Found", { status: 404 });
   }
 
@@ -76,14 +78,37 @@ Deno.serve(async (req) => {
     .replace(/\|/g, "") // 去除非法字符
     .replace(/\/+/g, "/"); // 合并连续斜杠
 
-  const targetUrl = new URL(sanitizedPath + url.search, targetBase);
+  const targetUrl = new URL(sanitizedPath, proxyConfig.target);
 
   // 处理 raw 参数（当 raw=true 时重定向到源链接）
   if (url.searchParams.get("raw") === "true") {
+    let redirectUrl;
+    
+    // 1. 检查是否配置了自定义重定向模板
+    if (proxyConfig.rawRedirect) {
+      // 使用自定义模板构建重定向URL ({path}占位符会被替换)
+      redirectUrl = proxyConfig.rawRedirect.replace("{path}", sanitizedPath);
+    } 
+    // 2. 冗余措施：没有自定义模板时自动生成基础重定向URL
+    else {
+      // 使用默认目标URL作为基础
+      redirectUrl = targetUrl.toString();
+    }
+    
+    // 添加查询参数（排除raw参数）
+    const params = new URLSearchParams();
+    url.searchParams.forEach((value, key) => {
+      if (key !== "raw") params.append(key, value);
+    });
+    
+    if (params.toString()) {
+      redirectUrl += (redirectUrl.includes('?') ? '&' : '?') + params.toString();
+    }
+    
     return new Response(null, {
       status: 302,
       headers: {
-        "Location": targetUrl.toString(),
+        "Location": redirectUrl,
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     });
@@ -93,6 +118,11 @@ Deno.serve(async (req) => {
     const headers = new Headers(req.headers);
     headers.delete("host");
 
+    // 添加所有查询参数到目标 URL
+    url.searchParams.forEach((value, key) => {
+      targetUrl.searchParams.append(key, value);
+    });
+
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: headers,
@@ -101,8 +131,10 @@ Deno.serve(async (req) => {
 
     const responseHeaders = new Headers(response.headers);
     responseHeaders.set("Cache-Control", `public, max-age=${CACHE_MAX_AGE}`);
-    responseHeaders.set("Content-Type", 
-      `${responseHeaders.get("Content-Type") || "application/octet-stream"}; charset=utf-8`);
+    
+    // 确保响应包含正确的内容类型
+    const contentType = responseHeaders.get("Content-Type") || "application/octet-stream";
+    responseHeaders.set("Content-Type", `${contentType.includes(';') ? contentType : contentType + '; charset=utf-8'}`);
 
     return new Response(response.body, {
       status: response.status,
@@ -123,6 +155,7 @@ Deno.serve(async (req) => {
 
 console.log(`
 ✅ 服务已启动（全资源缓存 ${CACHE_MAX_AGE} 秒）
-├ 代理配置: ${PROXIES.map(p => `${p.prefix} → ${p.target}`).join(", ")}
+├ 代理配置:
+${PROXIES.map(p => `│   ${p.prefix} → ${p.target}\n│      重定向模板: ${p.rawRedirect || "自动生成"}`).join("\n")}
 └ 启动时间: ${new Date().toLocaleString()}
 `);
