@@ -2,7 +2,7 @@
   publish = "assets"
 
 # 全局 Edge Functions 配置（单数形式）
-[edge_functions]
+[[edge_functions]]
   directory = "functions"  # 自定义目录
 
 # 函数定义（复数形式）
