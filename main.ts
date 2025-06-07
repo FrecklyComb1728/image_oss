@@ -65,6 +65,11 @@ Deno.serve(async (req) => {
     }
   }
 
+  // 如果没有匹配的代理路径
+  if (targetBase === null) {
+    return new Response("Not Found", { status: 404 });
+  }
+
   // 路径安全化处理
   const sanitizedPath = basePath
     .replace(/^\//, "") // 去除开头斜杠
@@ -72,6 +77,17 @@ Deno.serve(async (req) => {
     .replace(/\/+/g, "/"); // 合并连续斜杠
 
   const targetUrl = new URL(sanitizedPath + url.search, targetBase);
+
+  // 处理 raw 参数（当 raw=true 时重定向到源链接）
+  if (url.searchParams.get("raw") === "true") {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "Location": targetUrl.toString(),
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    });
+  }
 
   try {
     const headers = new Headers(req.headers);
