@@ -1,9 +1,0 @@
-[build]
-  publish = "assets"
-
-[edge_functions]
-  directory = "functions"  # 所有 Edge Functions 的根目录
-
-[[edge_functions]]
-  function = "main"
-  path = "/*"
